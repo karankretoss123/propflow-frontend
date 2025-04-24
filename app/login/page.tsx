@@ -14,20 +14,50 @@ import { Label } from "@/components/ui/label"
 import { AuthProviderButton, AuthProviderSeparator } from "@/components/auth-providers"
 import { useAuth } from "@/components/auth/auth-context"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+import { toast } from "sonner"
 export default function LoginPage() {
-  const [email, setEmail] = useState("test@example.com")
-  const [password, setPassword] = useState("password")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [plan, setPlan] = useState<"starter" | "standard" | "premium">("premium")
   const [showTestOptions, setShowTestOptions] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    login(email, password, plan)
-    router.push("/dashboard")
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  const validate = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const errs: typeof errors = {}
+
+    if (!email) {
+      errs.email = "Email is required"
+    } else if (!emailRegex.test(email)) {
+      errs.email = "Invalid email address"
+    }
+
+    if (!password) {
+      errs.password = "Password is required"
+    }
+
+    setErrors(errs)
+    return Object.keys(errs).length === 0
   }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return
+    setLoading(true);
+
+    try {
+      const response = await login(email, password);
+      toast.success(response?.message || "Login success")
+      router.push("/dashboard");
+    } catch (error: any) {
+      toast.error(error?.message || "fails")
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const toggleTestOptions = () => {
     setShowTestOptions(!showTestOptions)
@@ -49,21 +79,31 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
+                disabled={loading}
                 id="email"
-                type="email"
                 placeholder="name@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                className={errors.email ? "border-red-500" : ""}
+                onChange={(e) => { setEmail(e.target.value); setErrors({ ...errors, email: "" }) }}
               />
+              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link href="#" className="text-xs text-primary hover:underline">
+                <Link href="#" className="text-xs text-primary hover:underline" >
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                placeholder="*******"
+                className={errors.password ? "border-red-500" : ""}
+                value={password}
+                disabled={loading}
+                onChange={(e) => { setPassword(e.target.value); setErrors({ ...errors, password: "" }) }} />
+              {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
             </div>
 
             {/* Test Options - Only visible in development */}
@@ -99,8 +139,11 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button className="w-full" type="submit">
+            {/* <Button className="w-full" type="submit">
               Login
+            </Button> */}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
             </Button>
 
             <AuthProviderSeparator />

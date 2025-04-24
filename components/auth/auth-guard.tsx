@@ -1,24 +1,28 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "./auth-context"
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const router = useRouter()
+  const [hasMounted, setHasMounted] = useState(false)
 
   useEffect(() => {
-    if (!user?.isAuthenticated) {
+    setHasMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (hasMounted && !loading && !user?.isAuthenticated) {
       router.push("/login")
     }
-  }, [user, router])
+  }, [hasMounted, user, loading, router])
 
-  if (!user?.isAuthenticated) {
-    return null
-  }
+  // ⛔ Avoid hydration mismatch
+  if (!hasMounted || loading) return null
+
+  if (!user?.isAuthenticated) return null
 
   return <>{children}</>
 }
